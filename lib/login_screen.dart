@@ -17,9 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text == 'password') {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const QrScannerScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const QrScannerScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -40,151 +38,193 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final media = MediaQuery.of(context);
+
+    const barBaseHeight = 65.0;
+    final topInset = media.padding.top; // status bar height
+    final barHeight = barBaseHeight + topInset;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF2B7FFF),
-              Color(0xFF980FFA),
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // 🔹 Top Bar
-            Container(
-              height: 65,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.10),
-                border: const Border(
-                  bottom: BorderSide(
-                    color: Color(0x33FFFEFE),
-                  ),
-                ),
-              ),
-              padding: const EdgeInsets.only(left: 24),
-              alignment: Alignment.centerLeft,
-              child: const Text(
-                'QR Scanner',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+      // We handle keyboard padding ourselves
+      resizeToAvoidBottomInset: false,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF2B7FFF),
+                Color(0xFF980FFA),
+              ],
             ),
-
-            // 🔹 Login Card
-            Center(
-              child: Container(
-                width: size.width > 500 ? 448 : size.width * 0.9,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
+          ),
+          child: Stack(
+            children: [
+              // 🔹 Top Bar (status-bar safe)
+              Container(
+                height: barHeight,
+                width: double.infinity,
+                padding: EdgeInsets.only(left: 24, top: topInset),
+                alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: const Color(0x33FFFEFE),
+                  border: const Border(
+                    bottom: BorderSide(color: Color(0x33FFFEFE)),
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Icon
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.20),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.qr_code,
-                        size: 48,
-                        color: Colors.white,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Login',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    const Text(
-                      'Enter your credentials to access the QR scanner',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Color(0xCCFFFEFE),
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Username Field
-                    _buildInput(
-                      controller: _usernameController,
-                      hint: 'Username',
-                      icon: Icons.person,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Password Field
-                    _buildInput(
-                      controller: _passwordController,
-                      hint: 'Password',
-                      icon: Icons.lock,
-                      obscure: true,
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text(
-                          'Login',
-                          style: TextStyle(
-                            color: Color(0xFF9810FA),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: const Text(
+                  'QR Scanner',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              // 🔹 Login Card (scrolls + avoids keyboard overflow)
+              Positioned.fill(
+                top: barHeight, // below the top bar
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final keyboard = MediaQuery.of(context).viewInsets.bottom;
+                    final cardWidth = constraints.maxWidth > 500
+                        ? 448.0
+                        : constraints.maxWidth * 0.9;
+
+                    return AnimatedPadding(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.only(bottom: keyboard),
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Center(
+                            child: SizedBox(
+                              width: cardWidth,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 32,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: const Color(0x33FFFEFE),
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Icon
+                                    Container(
+                                      width: 96,
+                                      height: 96,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.20),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.qr_code,
+                                        size: 48,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 24),
+
+                                    const Text(
+                                      'Login',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 8),
+
+                                    const Text(
+                                      'Enter your credentials to access the QR scanner',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Color(0xCCFFFEFE),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 24),
+
+                                    // Username Field
+                                    _buildInput(
+                                      controller: _usernameController,
+                                      hint: 'Username',
+                                      icon: Icons.person,
+                                      textInputAction: TextInputAction.next,
+                                      onSubmitted: (_) =>
+                                          FocusScope.of(context).nextFocus(),
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // Password Field
+                                    _buildInput(
+                                      controller: _passwordController,
+                                      hint: 'Password',
+                                      icon: Icons.lock,
+                                      obscure: true,
+                                      textInputAction: TextInputAction.done,
+                                      onSubmitted: (_) => _login(),
+                                    ),
+
+                                    const SizedBox(height: 24),
+
+                                    // Login Button
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 56,
+                                      child: ElevatedButton(
+                                        onPressed: _login,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Login',
+                                          style: TextStyle(
+                                            color: Color(0xFF9810FA),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -195,11 +235,15 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     required IconData icon,
     bool obscure = false,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscure,
       style: const TextStyle(color: Colors.white),
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.white70),
         hintText: hint,
