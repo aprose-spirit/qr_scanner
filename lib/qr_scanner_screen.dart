@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -13,11 +14,32 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   final MobileScannerController _controller = MobileScannerController();
 
   bool _isScanning = false;
-
-  // Locks handling so we don't spam dialogs.
   bool _handlingResult = false;
 
+  // Optional: prevent same QR from popping again immediately
+  String? _lastCode;
+  DateTime? _lastScanAt;
+
   Future<void> _startScanning() async {
+    if (!mounted) return;
+
+    // ✅ Web / Desktop: DO NOT use permission_handler (web permissions are browser-managed)
+    if (kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux) {
+      setState(() {
+        _isScanning = true;
+        _handlingResult = false;
+      });
+
+      try {
+        await _controller.start();
+      } catch (_) {}
+
+      return;
+    }
+
+    // ✅ Android/iOS/macOS: request permission
     final status = await Permission.camera.request();
     if (!mounted) return;
 
@@ -27,8 +49,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         _handlingResult = false;
       });
 
-      // Start camera preview
-      await _controller.start();
+      try {
+        await _controller.start();
+      } catch (_) {}
       return;
     }
 
@@ -37,26 +60,39 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       return;
     }
 
-    // denied / restricted -> optional: show a snackbar/dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Camera permission is required to scan.')),
+    );
   }
 
   Future<void> _stopScanning() async {
-    await _controller.stop();
+    try {
+      await _controller.stop();
+    } catch (_) {}
     if (!mounted) return;
     setState(() => _isScanning = false);
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_handlingResult) return;
+    if (capture.barcodes.isEmpty) return;
 
     final code = capture.barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
 
-    _handlingResult = true;
+    // Debounce same code
+    final now = DateTime.now();
+    if (_lastCode == code &&
+        _lastScanAt != null &&
+        now.difference(_lastScanAt!).inMilliseconds < 1200) {
+      return;
+    }
+    _lastCode = code;
+    _lastScanAt = now;
 
+    _handlingResult = true;
     if (!mounted) return;
 
-    // ✅ Keep camera ON: do NOT stop controller and do NOT set _isScanning=false.
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -71,9 +107,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         ],
       ),
     );
-
-    // Small debounce (optional). Helps avoid immediate re-trigger on the same QR.
-    await Future.delayed(const Duration(milliseconds: 250));
 
     _handlingResult = false;
   }
@@ -102,7 +135,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         ),
         child: Stack(
           children: [
-            // ===== Scanner view (shows only when scanning) =====
             if (_isScanning) ...[
               Positioned.fill(
                 child: MobileScanner(
@@ -111,7 +143,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ),
               ),
 
-              // Top glass bar over camera
               Positioned(
                 top: 0,
                 left: 0,
@@ -147,7 +178,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ),
               ),
 
-              // Simple scan frame overlay
               Center(
                 child: Container(
                   width: size.width * 0.70,
@@ -162,7 +192,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ),
               ),
 
-              // Optional: show "Paused" overlay while dialog is open (visual feedback)
               if (_handlingResult)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -192,9 +221,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 ),
             ],
 
-            // ===== Your original UI (shows when not scanning) =====
             if (!_isScanning) ...[
-              // Top App Bar (safe for notch)
               Positioned(
                 top: 0,
                 left: 0,
