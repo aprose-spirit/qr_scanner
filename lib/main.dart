@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Import the login screen
+import 'models/scan_entry.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ This works on Web AND Android
+  await Hive.initFlutter();
+  Hive.registerAdapter(ScanEntryAdapter());
+  await Hive.openBox<ScanEntry>('scans');
+
   runApp(const MyApp());
 }
 
@@ -12,11 +21,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'QR Scanner System',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const LoginScreen(), // Call the login screen here
+      home: const LoginScreen(),
     );
   }
 }

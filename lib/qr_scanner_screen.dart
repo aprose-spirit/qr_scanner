@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/qr_result_screen.dart';
+import 'models/scan_entry.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:hive/hive.dart';
+import 'qr_parser.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -74,42 +78,69 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_handlingResult) return;
-    if (capture.barcodes.isEmpty) return;
+  if (_handlingResult) return;
+  if (capture.barcodes.isEmpty) return;
 
-    final code = capture.barcodes.first.rawValue;
-    if (code == null || code.isEmpty) return;
+  final code = capture.barcodes.first.rawValue;
+  if (code == null || code.isEmpty) return;
 
-    // Debounce same code
-    final now = DateTime.now();
-    if (_lastCode == code &&
-        _lastScanAt != null &&
-        now.difference(_lastScanAt!).inMilliseconds < 1200) {
-      return;
-    }
-    _lastCode = code;
-    _lastScanAt = now;
+  // Debounce same code
+  final now = DateTime.now();
+  if (_lastCode == code &&
+      _lastScanAt != null &&
+      now.difference(_lastScanAt!).inMilliseconds < 1200) {
+    return;
+  }
+  _lastCode = code;
+  _lastScanAt = now;
 
-    _handlingResult = true;
-    if (!mounted) return;
+  _handlingResult = true;
+  if (!mounted) return;
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('QR Result'),
-        content: Text(code),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+  // ✅ Parse your 4-line prominent QR (if matches)
+  final parsed = parseProminentQr(code);
+
+  // ✅ Save to Hive database (works on Web + Android)
+  try {
+    final box = Hive.box<ScanEntry>('scans');
+    await box.add(
+      ScanEntry(
+        timestampIso: DateTime.now().toIso8601String(),
+        raw: code,
+        name: parsed?.name,
+        id: parsed?.id,
+        position: parsed?.position,
+        company: parsed?.company,
       ),
     );
-
-    _handlingResult = false;
+  } catch (_) {
+    // Optional: show snackbar if you want
+    // ScaffoldMessenger.of(context).showSnackBar(
+    //   const SnackBar(content: Text('Failed to save scan.')),
+    // );
   }
+
+  // Optional: pause camera while viewing result
+  try {
+    await _controller.stop();
+  } catch (_) {}
+
+  // Go to result screen
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => QrResultScreen(code: code),
+    ),
+  );
+
+  // When user goes back, resume scanning (only if still in scan mode)
+  if (!mounted) return;
+  try {
+    if (_isScanning) await _controller.start();
+  } catch (_) {}
+
+  _handlingResult = false;
+}
 
   @override
   void dispose() {
