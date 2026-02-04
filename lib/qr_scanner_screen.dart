@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/qr_result_screen.dart';
+import 'qr_result_screen.dart';
+import 'scan_history_screen.dart';
 import 'models/scan_entry.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:hive/hive.dart';
-import 'qr_parser.dart';
+import 'models/qr_parser.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -329,6 +330,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
+                      // Start Scanning button
                       SizedBox(
                         width: double.infinity,
                         height: 56,
@@ -344,6 +346,36 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                             'Start Scanning',
                             style: TextStyle(
                               color: Color(0xFF9810FA),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // ✅ Scan History button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ScanHistoryScreen()),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.white.withOpacity(0.85), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Scan History',
+                            style: TextStyle(
+                              color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
